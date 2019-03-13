@@ -1,20 +1,20 @@
 package com.mapscience.modular.system.controller.excel;
 
+
+import cn.afterturn.easypoi.excel.ExcelExportUtil;
 import cn.afterturn.easypoi.excel.ExcelImportUtil;
+import cn.afterturn.easypoi.excel.annotation.Excel;
+import cn.afterturn.easypoi.excel.entity.ExportParams;
 import cn.afterturn.easypoi.excel.entity.ImportParams;
-import cn.afterturn.easypoi.excel.entity.result.ExcelImportResult;
 import com.mapscience.core.common.ResponseVal;
 import com.mapscience.core.util.excel.EasyPOIExcelUtile;
 import com.mapscience.modular.system.dto.EmployeeDTO;
 import com.mapscience.modular.system.model.Company;
+import com.mapscience.modular.system.model.Education;
 import com.mapscience.modular.system.model.Employee;
 import com.mapscience.modular.system.service.ICompanyService;
+import com.mapscience.modular.system.service.IEducationService;
 import com.mapscience.modular.system.service.IEmployeeService;
-import org.apache.poi.hssf.usermodel.HSSFCell;
-import org.apache.poi.hssf.usermodel.HSSFDataFormat;
-import org.apache.poi.hssf.usermodel.HSSFDateUtil;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.text.SimpleDateFormat;
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -47,6 +47,9 @@ public class ExcelController {
     private IEmployeeService employeeService;
 
     @Autowired
+    private IEducationService educationService;
+
+    @Autowired
     private ICompanyService companyService;
 
     /**
@@ -62,7 +65,12 @@ public class ExcelController {
     public ResponseVal exportEmploy(HttpServletRequest request, Integer method, Integer type, String ids,
                                     HttpServletResponse response) {
 
-        return new ResponseVal(200, "测试", null);
+        List<Employee> list = employeeService.getList();
+        Workbook workbook = ExcelExportUtil.exportExcel(new ExportParams("员工信息表", "员工信息"), Employee.class, list);
+
+
+
+        return new ResponseVal(200, "测试", new Date());
     }
 
     /**
@@ -76,6 +84,8 @@ public class ExcelController {
     public ResponseVal export(HttpServletResponse response) {
         EasyPOIExcelUtile.exportExcel(new ArrayList<EmployeeDTO>(), "员工基本信息", "基本信息", EmployeeDTO.class, "员工基本信息.xls",
                 response);
+
+
         return new ResponseVal(200, "测试", null);
     }
 
@@ -97,14 +107,13 @@ public class ExcelController {
             ImportParams params = new ImportParams();
             // 表头在第几行
             params.setTitleRows(0);
-            params.setHeadRows(1);
+            params.setHeadRows(2);
             Sheet sh = null;
 
 
             // 循环工作表获取sheet
-            for (int n = 1; n < workBook.getNumberOfSheets(); n++) {
+            for (int n = 0; n < workBook.getNumberOfSheets(); n++) {
 
-                SimpleDateFormat sdf = new SimpleDateFormat();
                 params.setStartSheetIndex(n);
                 //ExcelImportResult<Object> result = null;
                 // 循环表获取页
@@ -112,57 +121,39 @@ public class ExcelController {
                 String sheetName = sh.getSheetName();
 
                 if ("基本信息".equals(sheetName)) {
-                    int lastRowNum = sh.getLastRowNum();
-                    int firstRowNum = sh.getFirstRowNum();
-                    List<Employee> list = new ArrayList<>();
-                    for (int i = firstRowNum; i < lastRowNum; i++) {
-
-                        if (i<=1){
-                            continue;
-                        }
-
-                        Row row = sh.getRow(i);
-
-                        int lastCellNum = row.getLastCellNum();
-                        for (int j = 0; j < lastCellNum; j++) {
-                            if (j==1){
-                                continue;
-                            }
-                            if (j==22){
-                                continue;
-                            }
-                            Cell cell = row.getCell(j);
-                            if (cell.getCellType() == HSSFCell.CELL_TYPE_NUMERIC) {
-                                if (HSSFDateUtil.isCellDateFormatted(cell)) {
-                                    String cellValue = sdf.format(cell.getDateCellValue());
-                                    System.out.println(cellValue);
-                                }
-                            }else {
-                                String cellValue = cell.getStringCellValue();
-                                System.out.println(cellValue);
-                            }
-                        }
-
+                    //List<Employee> list = EasyPOIExcelUtile.importExcel(files, params.getTitleRows(), params.getHeadRows(), Employee.class);
+                    List<EmployeeDTO> list = ExcelImportUtil.importExcel(files.getInputStream(), EmployeeDTO.class, params);
+                    for (EmployeeDTO employeeDTO : list) {
+                        employeeDTO.setEmployeeStateId("1");
+                        employeeDTO.setCrateTime(new Date());
+                        employeeDTO.setUpdateTime(new Date());
+                        employeeService.add(employeeDTO);
                     }
 
                     //result = ExcelImportUtil.importExcelMore(files.getInputStream(), EmployeeDTO.class, params);
 
                 } else if ("教育".equals(sheetName)) {
-                    List<Employee> list = ExcelImportUtil.importExcel(files.getInputStream(), Employee.class, params);
-                    for (Employee employee : list) {
-                        employeeService.add(employee);
-                        boolean insertBatch = employeeService.insertBatch(list);
-                        if (insertBatch) {
-                            return new ResponseVal(200, "success");
-                        } else {
-                            return new ResponseVal(500, "fail");
-                        }
+                    List<Education> list = ExcelImportUtil.importExcel(files.getInputStream(), Education.class, params);
+                    for (Education education : list) {
+                        education.setCreateTime(new Date());
+                        education.setUpdateTime(new Date());
+
                     }
 
                 } else if ("工作经历".equals(sheetName)) {
+                    List<Employee> list = ExcelImportUtil.importExcel(files.getInputStream(), EmployeeDTO.class, params);
+                    for (Employee employee : list) {
+                        employeeService.add(employee);
+
+                    }
 
                 } else if ("家庭成员社会关系".equals(sheetName)) {
-                   // List<Employee> list = EasyPOIExcelUtile.importExcel(files, 0, 1, Employee.class);
+                    // List<Employee> list = EasyPOIExcelUtile.importExcel(files, 0, 1, Employee.class);
+                    List<EmployeeDTO> list = ExcelImportUtil.importExcel(files.getInputStream(), EmployeeDTO.class, params);
+                    for (EmployeeDTO employeeDTO : list) {
+                        employeeService.add(employeeDTO);
+
+                    }
 
                 }
 
@@ -174,8 +165,6 @@ public class ExcelController {
             return new ResponseVal(500, "上传失败！");
         }
     }
-
-
 
 
     /**
@@ -207,5 +196,6 @@ public class ExcelController {
             return new ResponseVal(500, "erro");
         }
     }
+
 
 }

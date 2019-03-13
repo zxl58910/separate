@@ -54,7 +54,7 @@ public class Employee extends Model<Employee> {
      * 出生日期,格式yyyy-MM-dd
      */
     @TableField("birth_day")
-    @Excel(name = "出生日期", databaseFormat ="yyyyMMddHHmmss", format = "yyyy-MM-dd", isImportField = "true",width = 20)
+    @Excel(name = "出生年月", databaseFormat ="yyyyMMddHHmmss", format = "yyyy-MM-dd", isImportField = "true",width = 20)
     private Date birthDay;
     /**
      * 国籍id
@@ -94,7 +94,7 @@ public class Employee extends Model<Employee> {
      * 入党日期,yyyy-mm-dd
      */
     @TableField("admission_day")
-    @Excel(name = "入党日期", databaseFormat ="yyyyMMddHHmmss", format = "yyyy-MM", isImportField = "true",width = 20)
+    @Excel(name = "入党时间", databaseFormat ="yyyyMMddHHmmss", format = "yyyy/MM", isImportField = "true",width = 20)
     private Date admissionDay;
     /**
      * 参加工作时间,yyyy-mm
@@ -239,6 +239,7 @@ public class Employee extends Model<Employee> {
      * 创建时间
      */
     @TableField("crate_time")
+    @Excel(name = "填表时间")
     private Date crateTime;
     /**
      * 更新时间
